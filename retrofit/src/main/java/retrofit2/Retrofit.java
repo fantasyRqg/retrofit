@@ -21,9 +21,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import okhttp3.HttpUrl;
@@ -58,6 +58,7 @@ import static retrofit2.Utils.checkNotNull;
  * @author Jake Wharton (jw@squareup.com)
  */
 public final class Retrofit {
+<<<<<<< HEAD
     private final Map<Method, ServiceMethod> serviceMethodCache = new LinkedHashMap<>();
 
     private final okhttp3.Call.Factory callFactory;
@@ -76,6 +77,172 @@ public final class Retrofit {
         this.adapterFactories = unmodifiableList(adapterFactories); // Defensive copy at call site.
         this.callbackExecutor = callbackExecutor;
         this.validateEagerly = validateEagerly;
+=======
+  private final Map<Method, ServiceMethod<?, ?>> serviceMethodCache = new ConcurrentHashMap<>();
+
+  private final okhttp3.Call.Factory callFactory;
+  private final HttpUrl baseUrl;
+  private final List<Converter.Factory> converterFactories;
+  private final List<CallAdapter.Factory> adapterFactories;
+  private final Executor callbackExecutor;
+  private final boolean validateEagerly;
+
+  Retrofit(okhttp3.Call.Factory callFactory, HttpUrl baseUrl,
+      List<Converter.Factory> converterFactories, List<CallAdapter.Factory> adapterFactories,
+      Executor callbackExecutor, boolean validateEagerly) {
+    this.callFactory = callFactory;
+    this.baseUrl = baseUrl;
+    this.converterFactories = unmodifiableList(converterFactories); // Defensive copy at call site.
+    this.adapterFactories = unmodifiableList(adapterFactories); // Defensive copy at call site.
+    this.callbackExecutor = callbackExecutor;
+    this.validateEagerly = validateEagerly;
+  }
+
+  /**
+   * Create an implementation of the API endpoints defined by the {@code service} interface.
+   * <p>
+   * The relative path for a given method is obtained from an annotation on the method describing
+   * the request type. The built-in methods are {@link retrofit2.http.GET GET},
+   * {@link retrofit2.http.PUT PUT}, {@link retrofit2.http.POST POST}, {@link retrofit2.http.PATCH
+   * PATCH}, {@link retrofit2.http.HEAD HEAD}, {@link retrofit2.http.DELETE DELETE} and
+   * {@link retrofit2.http.OPTIONS OPTIONS}. You can use a custom HTTP method with
+   * {@link HTTP @HTTP}. For a dynamic URL, omit the path on the annotation and annotate the first
+   * parameter with {@link Url @Url}.
+   * <p>
+   * Method parameters can be used to replace parts of the URL by annotating them with
+   * {@link retrofit2.http.Path @Path}. Replacement sections are denoted by an identifier
+   * surrounded by curly braces (e.g., "{foo}"). To add items to the query string of a URL use
+   * {@link retrofit2.http.Query @Query}.
+   * <p>
+   * The body of a request is denoted by the {@link retrofit2.http.Body @Body} annotation. The
+   * object will be converted to request representation by one of the {@link Converter.Factory}
+   * instances. A {@link RequestBody} can also be used for a raw representation.
+   * <p>
+   * Alternative request body formats are supported by method annotations and corresponding
+   * parameter annotations:
+   * <ul>
+   * <li>{@link retrofit2.http.FormUrlEncoded @FormUrlEncoded} - Form-encoded data with key-value
+   * pairs specified by the {@link retrofit2.http.Field @Field} parameter annotation.
+   * <li>{@link retrofit2.http.Multipart @Multipart} - RFC 2388-compliant multipart data with
+   * parts specified by the {@link retrofit2.http.Part @Part} parameter annotation.
+   * </ul>
+   * <p>
+   * Additional static headers can be added for an endpoint using the
+   * {@link retrofit2.http.Headers @Headers} method annotation. For per-request control over a
+   * header annotate a parameter with {@link Header @Header}.
+   * <p>
+   * By default, methods return a {@link Call} which represents the HTTP request. The generic
+   * parameter of the call is the response body type and will be converted by one of the
+   * {@link Converter.Factory} instances. {@link ResponseBody} can also be used for a raw
+   * representation. {@link Void} can be used if you do not care about the body contents.
+   * <p>
+   * For example:
+   * <pre>
+   * public interface CategoryService {
+   *   &#64;POST("category/{cat}/")
+   *   Call&lt;List&lt;Item&gt;&gt; categoryList(@Path("cat") String a, @Query("page") int b);
+   * }
+   * </pre>
+   */
+  @SuppressWarnings("unchecked") // Single-interface proxy creation guarded by parameter safety.
+  public <T> T create(final Class<T> service) {
+    Utils.validateServiceInterface(service);
+    if (validateEagerly) {
+      eagerlyValidateMethods(service);
+    }
+    return (T) Proxy.newProxyInstance(service.getClassLoader(), new Class<?>[] { service },
+        new InvocationHandler() {
+          private final Platform platform = Platform.get();
+
+          @Override public Object invoke(Object proxy, Method method, Object... args)
+              throws Throwable {
+            // If the method is a method from Object then defer to normal invocation.
+            if (method.getDeclaringClass() == Object.class) {
+              return method.invoke(this, args);
+            }
+            if (platform.isDefaultMethod(method)) {
+              return platform.invokeDefaultMethod(method, service, proxy, args);
+            }
+            ServiceMethod<Object, Object> serviceMethod =
+                (ServiceMethod<Object, Object>) loadServiceMethod(method);
+            OkHttpCall<Object> okHttpCall = new OkHttpCall<>(serviceMethod, args);
+            return serviceMethod.callAdapter.adapt(okHttpCall);
+          }
+        });
+  }
+
+  private void eagerlyValidateMethods(Class<?> service) {
+    Platform platform = Platform.get();
+    for (Method method : service.getDeclaredMethods()) {
+      if (!platform.isDefaultMethod(method)) {
+        loadServiceMethod(method);
+      }
+    }
+  }
+
+  ServiceMethod<?, ?> loadServiceMethod(Method method) {
+    ServiceMethod<?, ?> result = serviceMethodCache.get(method);
+    if (result != null) return result;
+
+    synchronized (serviceMethodCache) {
+      result = serviceMethodCache.get(method);
+      if (result == null) {
+        result = new ServiceMethod.Builder<>(this, method).build();
+        serviceMethodCache.put(method, result);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * The factory used to create {@linkplain okhttp3.Call OkHttp calls} for sending a HTTP requests.
+   * Typically an instance of {@link OkHttpClient}.
+   */
+  public okhttp3.Call.Factory callFactory() {
+    return callFactory;
+  }
+
+  /** The API base URL. */
+  public HttpUrl baseUrl() {
+    return baseUrl;
+  }
+
+  /**
+   * Returns a list of the factories tried when creating a
+   * {@linkplain #callAdapter(Type, Annotation[])} call adapter}.
+   */
+  public List<CallAdapter.Factory> callAdapterFactories() {
+    return adapterFactories;
+  }
+
+  /**
+   * Returns the {@link CallAdapter} for {@code returnType} from the available {@linkplain
+   * #callAdapterFactories() factories}.
+   *
+   * @throws IllegalArgumentException if no call adapter available for {@code type}.
+   */
+  public CallAdapter<?, ?> callAdapter(Type returnType, Annotation[] annotations) {
+    return nextCallAdapter(null, returnType, annotations);
+  }
+
+  /**
+   * Returns the {@link CallAdapter} for {@code returnType} from the available {@linkplain
+   * #callAdapterFactories() factories} except {@code skipPast}.
+   *
+   * @throws IllegalArgumentException if no call adapter available for {@code type}.
+   */
+  public CallAdapter<?, ?> nextCallAdapter(CallAdapter.Factory skipPast, Type returnType,
+      Annotation[] annotations) {
+    checkNotNull(returnType, "returnType == null");
+    checkNotNull(annotations, "annotations == null");
+
+    int start = adapterFactories.indexOf(skipPast) + 1;
+    for (int i = start, count = adapterFactories.size(); i < count; i++) {
+      CallAdapter<?, ?> adapter = adapterFactories.get(i).get(returnType, annotations, this);
+      if (adapter != null) {
+        return adapter;
+      }
+>>>>>>> square/master
     }
 
     /**
@@ -206,10 +373,16 @@ public final class Retrofit {
     }
 
     /**
+<<<<<<< HEAD
      * Returns the {@link CallAdapter} for {@code returnType} from the available {@linkplain
      * #callAdapterFactories() factories} except {@code skipPast}.
      *
      * @throws IllegalArgumentException if no call adapter available for {@code type}.
+=======
+     * The HTTP client used for requests.
+     * <p>
+     * This is a convenience method for calling {@link #callFactory}.
+>>>>>>> square/master
      */
     public CallAdapter<?> nextCallAdapter(CallAdapter.Factory skipPast, Type returnType,
                                           Annotation[] annotations) {

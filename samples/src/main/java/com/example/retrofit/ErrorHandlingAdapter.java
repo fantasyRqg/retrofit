@@ -33,6 +33,7 @@ import retrofit2.http.GET;
  * A sample showing a custom {@link CallAdapter} which adapts the built-in {@link Call} to a custom
  * version whose callback has more granular methods.
  */
+<<<<<<< HEAD:samples/src/main/java/com/example/retrofit/ErrorHandlingCallAdapter.java
 public final class ErrorHandlingCallAdapter {
     /**
      * A callback which offers granular callbacks for various conditions.
@@ -67,6 +68,65 @@ public final class ErrorHandlingCallAdapter {
          * Called for unexpected errors while making the call.
          */
         void unexpectedError(Throwable t);
+=======
+public final class ErrorHandlingAdapter {
+  /** A callback which offers granular callbacks for various conditions. */
+  interface MyCallback<T> {
+    /** Called for [200, 300) responses. */
+    void success(Response<T> response);
+    /** Called for 401 responses. */
+    void unauthenticated(Response<?> response);
+    /** Called for [400, 500) responses, except 401. */
+    void clientError(Response<?> response);
+    /** Called for [500, 600) response. */
+    void serverError(Response<?> response);
+    /** Called for network errors while making the call. */
+    void networkError(IOException e);
+    /** Called for unexpected errors while making the call. */
+    void unexpectedError(Throwable t);
+  }
+
+  interface MyCall<T> {
+    void cancel();
+    void enqueue(MyCallback<T> callback);
+    MyCall<T> clone();
+
+    // Left as an exercise for the reader...
+    // TODO MyResponse<T> execute() throws MyHttpException;
+  }
+
+  public static class ErrorHandlingCallAdapterFactory extends CallAdapter.Factory {
+    @Override public CallAdapter<?, ?> get(Type returnType, Annotation[] annotations,
+        Retrofit retrofit) {
+      if (getRawType(returnType) != MyCall.class) {
+        return null;
+      }
+      if (!(returnType instanceof ParameterizedType)) {
+        throw new IllegalStateException(
+            "MyCall must have generic type (e.g., MyCall<ResponseBody>)");
+      }
+      Type responseType = getParameterUpperBound(0, (ParameterizedType) returnType);
+      Executor callbackExecutor = retrofit.callbackExecutor();
+      return new ErrorHandlingCallAdapter<>(responseType, callbackExecutor);
+    }
+
+    private static final class ErrorHandlingCallAdapter<R> implements CallAdapter<R, MyCall<R>> {
+      private final Type responseType;
+      private final Executor callbackExecutor;
+
+      ErrorHandlingCallAdapter(Type responseType, Executor callbackExecutor) {
+        this.responseType = responseType;
+        this.callbackExecutor = callbackExecutor;
+      }
+
+      @Override public Type responseType() {
+        return responseType;
+      }
+
+      @Override public MyCall<R> adapt(Call<R> call) {
+        return new MyCallAdapter<>(call, callbackExecutor);
+      }
+>>>>>>> square/master:samples/src/main/java/com/example/retrofit/ErrorHandlingAdapter.java
     }
 
     interface MyCall<T> {

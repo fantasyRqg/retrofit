@@ -140,10 +140,21 @@ public final class Response<T> {
         return body;
     }
 
+<<<<<<< HEAD
     /**
      * The raw response body of an {@linkplain #isSuccessful() unsuccessful} response.
      */
     public ResponseBody errorBody() {
         return errorBody;
     }
+=======
+  /** The raw response body of an {@linkplain #isSuccessful() unsuccessful} response. */
+  public ResponseBody errorBody() {
+    return errorBody;
+  }
+
+  @Override public String toString() {
+    return rawResponse.toString();
+  }
+>>>>>>> square/master
 }

@@ -56,6 +56,7 @@ import retrofit2.http.Query;
 import retrofit2.http.QueryMap;
 import retrofit2.http.Url;
 
+<<<<<<< HEAD
 /**
  * Adapts an invocation of an interface method into an HTTP call.
  */
@@ -92,6 +93,56 @@ final class ServiceMethod<T> {
         this.isFormEncoded = builder.isFormEncoded;
         this.isMultipart = builder.isMultipart;
         this.parameterHandlers = builder.parameterHandlers;
+=======
+/** Adapts an invocation of an interface method into an HTTP call. */
+final class ServiceMethod<R, T> {
+  // Upper and lower characters, digits, underscores, and hyphens, starting with a character.
+  static final String PARAM = "[a-zA-Z][a-zA-Z0-9_-]*";
+  static final Pattern PARAM_URL_REGEX = Pattern.compile("\\{(" + PARAM + ")\\}");
+  static final Pattern PARAM_NAME_REGEX = Pattern.compile(PARAM);
+
+  final okhttp3.Call.Factory callFactory;
+  final CallAdapter<R, T> callAdapter;
+
+  private final HttpUrl baseUrl;
+  private final Converter<ResponseBody, R> responseConverter;
+  private final String httpMethod;
+  private final String relativeUrl;
+  private final Headers headers;
+  private final MediaType contentType;
+  private final boolean hasBody;
+  private final boolean isFormEncoded;
+  private final boolean isMultipart;
+  private final ParameterHandler<?>[] parameterHandlers;
+
+  ServiceMethod(Builder<R, T> builder) {
+    this.callFactory = builder.retrofit.callFactory();
+    this.callAdapter = builder.callAdapter;
+    this.baseUrl = builder.retrofit.baseUrl();
+    this.responseConverter = builder.responseConverter;
+    this.httpMethod = builder.httpMethod;
+    this.relativeUrl = builder.relativeUrl;
+    this.headers = builder.headers;
+    this.contentType = builder.contentType;
+    this.hasBody = builder.hasBody;
+    this.isFormEncoded = builder.isFormEncoded;
+    this.isMultipart = builder.isMultipart;
+    this.parameterHandlers = builder.parameterHandlers;
+  }
+
+  /** Builds an HTTP request from method arguments. */
+  Request toRequest(Object... args) throws IOException {
+    RequestBuilder requestBuilder = new RequestBuilder(httpMethod, baseUrl, relativeUrl, headers,
+        contentType, hasBody, isFormEncoded, isMultipart);
+
+    @SuppressWarnings("unchecked") // It is an error to invoke a method with the wrong arg types.
+    ParameterHandler<Object>[] handlers = (ParameterHandler<Object>[]) parameterHandlers;
+
+    int argumentCount = args != null ? args.length : 0;
+    if (argumentCount != handlers.length) {
+      throw new IllegalArgumentException("Argument count (" + argumentCount
+          + ") doesn't match expected count (" + handlers.length + ")");
+>>>>>>> square/master
     }
 
     /**
@@ -101,8 +152,57 @@ final class ServiceMethod<T> {
         RequestBuilder requestBuilder = new RequestBuilder(httpMethod, baseUrl, relativeUrl, headers,
                 contentType, hasBody, isFormEncoded, isMultipart);
 
+<<<<<<< HEAD
         @SuppressWarnings("unchecked") // It is an error to invoke a method with the wrong arg types.
                 ParameterHandler<Object>[] handlers = (ParameterHandler<Object>[]) parameterHandlers;
+=======
+    return requestBuilder.build();
+  }
+
+  /** Builds a method return value from an HTTP response body. */
+  R toResponse(ResponseBody body) throws IOException {
+    return responseConverter.convert(body);
+  }
+
+  /**
+   * Inspects the annotations on an interface method to construct a reusable service method. This
+   * requires potentially-expensive reflection so it is best to build each service method only once
+   * and reuse it. Builders cannot be reused.
+   */
+  static final class Builder<T, R> {
+    final Retrofit retrofit;
+    final Method method;
+    final Annotation[] methodAnnotations;
+    final Annotation[][] parameterAnnotationsArray;
+    final Type[] parameterTypes;
+
+    Type responseType;
+    boolean gotField;
+    boolean gotPart;
+    boolean gotBody;
+    boolean gotPath;
+    boolean gotQuery;
+    boolean gotUrl;
+    String httpMethod;
+    boolean hasBody;
+    boolean isFormEncoded;
+    boolean isMultipart;
+    String relativeUrl;
+    Headers headers;
+    MediaType contentType;
+    Set<String> relativeUrlParamNames;
+    ParameterHandler<?>[] parameterHandlers;
+    Converter<ResponseBody, T> responseConverter;
+    CallAdapter<T, R> callAdapter;
+
+    public Builder(Retrofit retrofit, Method method) {
+      this.retrofit = retrofit;
+      this.method = method;
+      this.methodAnnotations = method.getAnnotations();
+      this.parameterTypes = method.getGenericParameterTypes();
+      this.parameterAnnotationsArray = method.getParameterAnnotations();
+    }
+>>>>>>> square/master
 
         int argumentCount = args != null ? args.length : 0;
         if (argumentCount != handlers.length) {
@@ -117,6 +217,7 @@ final class ServiceMethod<T> {
         return requestBuilder.build();
     }
 
+<<<<<<< HEAD
     /**
      * Builds a method return value from an HTTP response body.
      */
@@ -172,6 +273,123 @@ final class ServiceMethod<T> {
                         + "' is not a valid response body type. Did you mean ResponseBody?");
             }
             responseConverter = createResponseConverter();
+=======
+    private CallAdapter<T, R> createCallAdapter() {
+      Type returnType = method.getGenericReturnType();
+      if (Utils.hasUnresolvableType(returnType)) {
+        throw methodError(
+            "Method return type must not include a type variable or wildcard: %s", returnType);
+      }
+      if (returnType == void.class) {
+        throw methodError("Service methods cannot return void.");
+      }
+      Annotation[] annotations = method.getAnnotations();
+      try {
+        //noinspection unchecked
+        return (CallAdapter<T, R>) retrofit.callAdapter(returnType, annotations);
+      } catch (RuntimeException e) { // Wide exception range because factories are user code.
+        throw methodError(e, "Unable to create call adapter for %s", returnType);
+      }
+    }
+
+    private void parseMethodAnnotation(Annotation annotation) {
+      if (annotation instanceof DELETE) {
+        parseHttpMethodAndPath("DELETE", ((DELETE) annotation).value(), false);
+      } else if (annotation instanceof GET) {
+        parseHttpMethodAndPath("GET", ((GET) annotation).value(), false);
+      } else if (annotation instanceof HEAD) {
+        parseHttpMethodAndPath("HEAD", ((HEAD) annotation).value(), false);
+        if (!Void.class.equals(responseType)) {
+          throw methodError("HEAD method must use Void as response type.");
+        }
+      } else if (annotation instanceof PATCH) {
+        parseHttpMethodAndPath("PATCH", ((PATCH) annotation).value(), true);
+      } else if (annotation instanceof POST) {
+        parseHttpMethodAndPath("POST", ((POST) annotation).value(), true);
+      } else if (annotation instanceof PUT) {
+        parseHttpMethodAndPath("PUT", ((PUT) annotation).value(), true);
+      } else if (annotation instanceof OPTIONS) {
+        parseHttpMethodAndPath("OPTIONS", ((OPTIONS) annotation).value(), false);
+      } else if (annotation instanceof HTTP) {
+        HTTP http = (HTTP) annotation;
+        parseHttpMethodAndPath(http.method(), http.path(), http.hasBody());
+      } else if (annotation instanceof retrofit2.http.Headers) {
+        String[] headersToParse = ((retrofit2.http.Headers) annotation).value();
+        if (headersToParse.length == 0) {
+          throw methodError("@Headers annotation is empty.");
+        }
+        headers = parseHeaders(headersToParse);
+      } else if (annotation instanceof Multipart) {
+        if (isFormEncoded) {
+          throw methodError("Only one encoding annotation is allowed.");
+        }
+        isMultipart = true;
+      } else if (annotation instanceof FormUrlEncoded) {
+        if (isMultipart) {
+          throw methodError("Only one encoding annotation is allowed.");
+        }
+        isFormEncoded = true;
+      }
+    }
+
+    private void parseHttpMethodAndPath(String httpMethod, String value, boolean hasBody) {
+      if (this.httpMethod != null) {
+        throw methodError("Only one HTTP method is allowed. Found: %s and %s.",
+            this.httpMethod, httpMethod);
+      }
+      this.httpMethod = httpMethod;
+      this.hasBody = hasBody;
+
+      if (value.isEmpty()) {
+        return;
+      }
+
+      // Get the relative URL path and existing query string, if present.
+      int question = value.indexOf('?');
+      if (question != -1 && question < value.length() - 1) {
+        // Ensure the query string does not have any named parameters.
+        String queryParams = value.substring(question + 1);
+        Matcher queryParamMatcher = PARAM_URL_REGEX.matcher(queryParams);
+        if (queryParamMatcher.find()) {
+          throw methodError("URL query string \"%s\" must not have replace block. "
+              + "For dynamic query parameters use @Query.", queryParams);
+        }
+      }
+
+      this.relativeUrl = value;
+      this.relativeUrlParamNames = parsePathParameters(value);
+    }
+
+    private Headers parseHeaders(String[] headers) {
+      Headers.Builder builder = new Headers.Builder();
+      for (String header : headers) {
+        int colon = header.indexOf(':');
+        if (colon == -1 || colon == 0 || colon == header.length() - 1) {
+          throw methodError(
+              "@Headers value must be in the form \"Name: Value\". Found: \"%s\"", header);
+        }
+        String headerName = header.substring(0, colon);
+        String headerValue = header.substring(colon + 1).trim();
+        if ("Content-Type".equalsIgnoreCase(headerName)) {
+          MediaType type = MediaType.parse(headerValue);
+          if (type == null) {
+            throw methodError("Malformed content type: %s", headerValue);
+          }
+          contentType = type;
+        } else {
+          builder.add(headerName, headerValue);
+        }
+      }
+      return builder.build();
+    }
+
+    private ParameterHandler<?> parseParameter(
+        int p, Type parameterType, Annotation[] annotations) {
+      ParameterHandler<?> result = null;
+      for (Annotation annotation : annotations) {
+        ParameterHandler<?> annotationAction = parseParameterAnnotation(
+            p, parameterType, annotations, annotation);
+>>>>>>> square/master
 
             for (Annotation annotation : methodAnnotations) {
                 parseMethodAnnotation(annotation);

@@ -13,28 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package retrofit2.helpers;
+package retrofit2.adapter.rxjava;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
+import java.util.concurrent.Callable;
+import retrofit2.Response;
 
-import retrofit2.CallAdapter;
-import retrofit2.Retrofit;
+final class ResultCallable<R> implements Callable<Result<R>> {
+  private final Callable<Response<R>> responseCallable;
 
-public final class NonMatchingCallAdapterFactory extends CallAdapter.Factory {
-    public boolean called;
-
-<<<<<<< HEAD
-    @Override
-    public CallAdapter<?> get(Type returnType, Annotation[] annotations, Retrofit retrofit) {
-        called = true;
-        return null;
-    }
-=======
-  @Override
-  public CallAdapter<?, ?> get(Type returnType, Annotation[] annotations, Retrofit retrofit) {
-    called = true;
-    return null;
+  ResultCallable(Callable<Response<R>> responseCallable) {
+    this.responseCallable = responseCallable;
   }
->>>>>>> square/master
+
+  @Override public Result<R> call() {
+    try {
+      return Result.response(responseCallable.call());
+    } catch (Throwable t) {
+      return Result.error(t);
+    }
+  }
 }

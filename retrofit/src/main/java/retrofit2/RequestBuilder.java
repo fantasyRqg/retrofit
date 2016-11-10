@@ -59,6 +59,7 @@ final class RequestBuilder {
             requestBuilder.headers(headers);
         }
 
+<<<<<<< HEAD
         if (isFormEncoded) {
             // Will be set to 'body' in 'build'.
             formBuilder = new FormBody.Builder();
@@ -67,6 +68,32 @@ final class RequestBuilder {
             multipartBuilder = new MultipartBody.Builder();
             multipartBuilder.setType(MultipartBody.FORM);
         }
+=======
+    if (isFormEncoded) {
+      // Will be set to 'body' in 'build'.
+      formBuilder = new FormBody.Builder();
+    } else if (isMultipart) {
+      // Will be set to 'body' in 'build'.
+      multipartBuilder = new MultipartBody.Builder();
+      multipartBuilder.setType(MultipartBody.FORM);
+    }
+  }
+
+  void setRelativeUrl(Object relativeUrl) {
+    if (relativeUrl == null) throw new NullPointerException("@Url parameter is null.");
+    this.relativeUrl = relativeUrl.toString();
+  }
+
+  void addHeader(String name, String value) {
+    if ("Content-Type".equalsIgnoreCase(name)) {
+      MediaType type = MediaType.parse(value);
+      if (type == null) {
+        throw new IllegalArgumentException("Malformed content type: " + value);
+      }
+      contentType = type;
+    } else {
+      requestBuilder.addHeader(name, value);
+>>>>>>> square/master
     }
 
     void setRelativeUrl(Object relativeUrl) {

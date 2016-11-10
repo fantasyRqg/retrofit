@@ -23,6 +23,33 @@ import java.util.concurrent.Executor;
 import okhttp3.Request;
 
 final class ExecutorCallAdapterFactory extends CallAdapter.Factory {
+<<<<<<< HEAD
+=======
+  final Executor callbackExecutor;
+
+  ExecutorCallAdapterFactory(Executor callbackExecutor) {
+    this.callbackExecutor = callbackExecutor;
+  }
+
+  @Override
+  public CallAdapter<?, ?> get(Type returnType, Annotation[] annotations, Retrofit retrofit) {
+    if (getRawType(returnType) != Call.class) {
+      return null;
+    }
+    final Type responseType = Utils.getCallResponseType(returnType);
+    return new CallAdapter<Object, Call<?>>() {
+      @Override public Type responseType() {
+        return responseType;
+      }
+
+      @Override public Call<Object> adapt(Call<Object> call) {
+        return new ExecutorCallbackCall<>(callbackExecutor, call);
+      }
+    };
+  }
+
+  static final class ExecutorCallbackCall<T> implements Call<T> {
+>>>>>>> square/master
     final Executor callbackExecutor;
 
     ExecutorCallAdapterFactory(Executor callbackExecutor) {

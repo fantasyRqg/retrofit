@@ -24,6 +24,7 @@ import okhttp3.ResponseBody;
 import retrofit2.http.Streaming;
 
 final class BuiltInConverters extends Converter.Factory {
+<<<<<<< HEAD
     @Override
     public Converter<ResponseBody, ?> responseBodyConverter(Type type, Annotation[] annotations,
                                                             Retrofit retrofit) {
@@ -37,6 +38,18 @@ final class BuiltInConverters extends Converter.Factory {
             return VoidResponseBodyConverter.INSTANCE;
         }
         return null;
+=======
+  @Override
+  public Converter<ResponseBody, ?> responseBodyConverter(Type type, Annotation[] annotations,
+      Retrofit retrofit) {
+    if (type == ResponseBody.class) {
+      return Utils.isAnnotationPresent(annotations, Streaming.class)
+          ? StreamingResponseBodyConverter.INSTANCE
+          : BufferingResponseBodyConverter.INSTANCE;
+    }
+    if (type == Void.class) {
+      return VoidResponseBodyConverter.INSTANCE;
+>>>>>>> square/master
     }
 
     @Override
@@ -48,6 +61,7 @@ final class BuiltInConverters extends Converter.Factory {
         return null;
     }
 
+<<<<<<< HEAD
     @Override
     public Converter<?, String> stringConverter(Type type, Annotation[] annotations,
                                                 Retrofit retrofit) {
@@ -68,6 +82,10 @@ final class BuiltInConverters extends Converter.Factory {
 
     static final class VoidResponseBodyConverter implements Converter<ResponseBody, Void> {
         static final VoidResponseBodyConverter INSTANCE = new VoidResponseBodyConverter();
+=======
+  static final class VoidResponseBodyConverter implements Converter<ResponseBody, Void> {
+    static final VoidResponseBodyConverter INSTANCE = new VoidResponseBodyConverter();
+>>>>>>> square/master
 
         @Override
         public Void convert(ResponseBody value) throws IOException {

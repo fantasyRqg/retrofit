@@ -26,8 +26,53 @@ import okio.ForwardingSource;
 import okio.Okio;
 
 final class OkHttpCall<T> implements Call<T> {
+<<<<<<< HEAD
     private final ServiceMethod<T> serviceMethod;
     private final Object[] args;
+=======
+  private final ServiceMethod<T, ?> serviceMethod;
+  private final Object[] args;
+
+  private volatile boolean canceled;
+
+  // All guarded by this.
+  private okhttp3.Call rawCall;
+  private Throwable creationFailure; // Either a RuntimeException or IOException.
+  private boolean executed;
+
+  OkHttpCall(ServiceMethod<T, ?> serviceMethod, Object[] args) {
+    this.serviceMethod = serviceMethod;
+    this.args = args;
+  }
+
+  @SuppressWarnings("CloneDoesntCallSuperClone") // We are a final type & this saves clearing state.
+  @Override public OkHttpCall<T> clone() {
+    return new OkHttpCall<>(serviceMethod, args);
+  }
+
+  @Override public synchronized Request request() {
+    okhttp3.Call call = rawCall;
+    if (call != null) {
+      return call.request();
+    }
+    if (creationFailure != null) {
+      if (creationFailure instanceof IOException) {
+        throw new RuntimeException("Unable to create request.", creationFailure);
+      } else {
+        throw (RuntimeException) creationFailure;
+      }
+    }
+    try {
+      return (rawCall = createRawCall()).request();
+    } catch (RuntimeException e) {
+      creationFailure = e;
+      throw e;
+    } catch (IOException e) {
+      creationFailure = e;
+      throw new RuntimeException("Unable to create request.", e);
+    }
+  }
+>>>>>>> square/master
 
     private volatile boolean canceled;
 
@@ -179,7 +224,13 @@ final class OkHttpCall<T> implements Call<T> {
             call.cancel();
         }
 
+<<<<<<< HEAD
         return parseResponse(call.execute());
+=======
+    if (code == 204 || code == 205) {
+      rawBody.close();
+      return Response.success(null, rawResponse);
+>>>>>>> square/master
     }
 
     private okhttp3.Call createRawCall() throws IOException {
